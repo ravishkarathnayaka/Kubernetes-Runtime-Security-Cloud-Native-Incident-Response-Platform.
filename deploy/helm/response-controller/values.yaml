@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  repository: falco-response-controller
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  name: "falco-response-controller"
+
+service:
+  type: ClusterIP
+  port: 8080
+
+env:
+  logLevel: "INFO"
+  evidenceDir: "/evidence"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+persistence:
+  enabled: false
+  size: 5Gi
+  storageClassName: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

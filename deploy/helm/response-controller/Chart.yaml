@@ -1,0 +1,16 @@
+apiVersion: v2
+name: falco-response-controller
+description: Enterprise Helm Chart for Kubernetes Runtime Security Automated Incident Response Controller
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - security
+  - falco
+  - ebpf
+  - incident-response
+  - quarantine
+  - network-policy
+maintainers:
+  - name: Ravishka Rathnayaka
+    email: ravishka@users.noreply.github.com
