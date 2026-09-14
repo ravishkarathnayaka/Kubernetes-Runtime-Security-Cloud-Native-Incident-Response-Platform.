@@ -305,3 +305,27 @@ def test_k8s_client_list_quarantined_pods(mock_k8s_client):
     assert result[0]["name"] == "isolated-pod"
     assert result[0]["status"] == "Running"
 
+
+def test_webhook_token_auth_rejected(test_client, monkeypatch):
+    """Test webhook with invalid or missing token when WEBHOOK_AUTH_TOKEN is set."""
+    monkeypatch.setenv("WEBHOOK_AUTH_TOKEN", "secret-falco-token-123")
+    payload = {"rule": "Test", "priority": "Critical"}
+    response = test_client.post("/webhook", json=payload)
+    assert response.status_code == 401
+    assert "Invalid or missing" in response.json()["detail"]
+
+
+def test_webhook_token_auth_accepted(test_client, monkeypatch):
+    """Test webhook with valid Bearer token when WEBHOOK_AUTH_TOKEN is set."""
+    monkeypatch.setenv("WEBHOOK_AUTH_TOKEN", "secret-falco-token-123")
+    payload = {
+        "rule": "System Metric",
+        "priority": "Informational",
+        "output": "Normal ping",
+    }
+    headers = {"Authorization": "Bearer secret-falco-token-123"}
+    response = test_client.post("/webhook", json=payload, headers=headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "ignored"
+
+

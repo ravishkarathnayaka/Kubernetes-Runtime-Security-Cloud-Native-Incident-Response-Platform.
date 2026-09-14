@@ -132,6 +132,24 @@ def get_incident(incident_id: str):
 @app.post("/webhook", status_code=status.HTTP_200_OK)
 async def receive_falco_alert(request: Request):
     """Webhook endpoint receiving Falco JSON alerts."""
+    # Verify Webhook Authentication Token if configured
+    expected_token = os.getenv("WEBHOOK_AUTH_TOKEN")
+    if expected_token:
+        auth_header = request.headers.get("Authorization", "")
+        custom_token = request.headers.get("X-Falco-Token", "")
+        token = ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+        elif custom_token:
+            token = custom_token.strip()
+
+        if token != expected_token:
+            logger.warning("Rejecting unauthorized webhook alert: invalid or missing authentication token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or missing webhook authentication token",
+            )
+
     try:
         payload = await request.json()
     except Exception as e:
