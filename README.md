@@ -22,6 +22,7 @@
 - [Step-by-Step Lab Setup & Deployment](#step-by-step-lab-setup--deployment)
 - [Simulated Attack Scenarios & Automated Containment](#simulated-attack-scenarios--automated-containment)
 - [Sample Terminal Evidence: Before vs. After Quarantine](#sample-terminal-evidence-before-vs-after-quarantine)
+- [Interactive Web Portal & Vercel Deployment](#interactive-web-portal--vercel-deployment)
 - [CIS Kubernetes Benchmark Auditing](#cis-kubernetes-benchmark-auditing)
 - [Automated Testing & CI/CD Validation](#automated-testing--cicd-validation)
 - [Production Hardening Guidelines](#production-hardening-guidelines)
@@ -137,8 +138,11 @@ sequenceDiagram
 │   ├── attack_token_harvest.sh        # Simulates unauthorized read of serviceaccount token
 │   └── run_all_simulations.sh         # Master validation harness: tests pre vs. post quarantine traffic
 ├── tests/
-│   ├── test_controller_actions.py     # 14+ unit tests mocking CoreV1Api & NetworkingV1Api (100% offline)
+│   ├── test_controller_actions.py     # 18 unit tests mocking CoreV1Api & NetworkingV1Api (100% offline)
 │   └── test_falco_rule_syntax.py      # Schema and syntax validator for custom Falco YAML rules
+├── web/
+│   └── index.html                     # Interactive Cyber-SOC showcase portal for Vercel deployment
+├── vercel.json                        # Vercel deployment configuration
 └── README.md                          # Comprehensive architecture, reproduction, and test documentation
 ```
 
@@ -286,6 +290,39 @@ total 24
 -rw-r--r-- 1 controller controller  840 Sep 14 15:42 container_app.log
 -rw-r--r-- 1 controller controller  412 Sep 14 15:42 evidence_manifest.json
 ```
+
+---
+
+## Interactive Web Portal & Vercel Deployment
+
+A standalone, dark-themed **Cyber-SOC Portal (`web/index.html`)** is included to visualize cluster telemetry, inspect node & pod topologies, trigger simulated attack vectors, explore forensic evidence, and showcase the platform.
+
+### Key Portal Capabilities
+- **Live Cluster & Telemetry Dashboard**: Real-time metrics for workloads, eBPF probes hooked, threats intercepted, and sub-second mean containment time (620ms).
+- **Interactive Multi-Node Topology**: Clickable node view (`control-plane`, `worker-1`, `worker-2`) and workload pods with live security inspection drawers.
+- **5-Stage Attack & Automated Containment Simulator**: Interactive triggers for ServiceAccount Token Harvesting, Exec Shell, Host Breakout, and C2 Egress with step-by-step containment playback and terminal simulation.
+- **Forensics Vault**: In-browser inspector for `falco_alert.json`, `pod_manifest_dump.yaml`, `container_app.log`, and `quarantine_policy.yaml` with copy and JSON bundle download.
+- **MITRE ATT&CK & CIS Benchmark Explorer**: Interactive matrices and compliance check viewer.
+
+### Local Preview
+Preview the portal locally without installing any web server:
+```bash
+# Python built-in HTTP server
+python -m http.server 3000 --directory web
+# Open http://localhost:3000 in your browser
+```
+
+### 1-Click Vercel Hosting
+The repository includes [`vercel.json`](vercel.json) pre-configured with `outputDirectory: "web"`.
+
+To deploy:
+1. Push your repository to GitHub (or import into [Vercel](https://vercel.com)).
+2. In Vercel, select **Add New Project** and pick `k8s-runtime-security-incident-response`.
+3. Vercel will automatically detect `vercel.json` and deploy the static portal instantly to your custom URL (e.g. `https://k8s-runtime-security-incident-response.vercel.app`).
+4. Or using the Vercel CLI:
+   ```bash
+   npx vercel --prod
+   ```
 
 ---
 

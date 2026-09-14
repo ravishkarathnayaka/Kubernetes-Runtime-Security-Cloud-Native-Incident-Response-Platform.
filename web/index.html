@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KubeSentinel | Kubernetes Runtime Security & Automated Incident Response Portal</title>
+  
+  <!-- Tailwind CSS & Custom Color Config -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            k8s: {
+              DEFAULT: '#326ce5',
+              dark: '#1d4ed8',
+              light: '#60a5fa',
+              glow: 'rgba(50, 108, 229, 0.35)'
+            },
+            falco: {
+              DEFAULT: '#00c6ff',
+              light: '#38ef7d',
+              cyan: '#00f2fe',
+              glow: 'rgba(0, 242, 254, 0.3)'
+            },
+            threat: {
+              DEFAULT: '#ff2a5f',
+              dark: '#b91c1c',
+              glow: 'rgba(255, 42, 95, 0.3)'
+            },
+            quarantine: {
+              DEFAULT: '#10b981',
+              dark: '#047857',
+              glow: 'rgba(16, 185, 129, 0.3)'
+            },
+            cyber: {
+              bg: '#060913',
+              card: '#0c1222',
+              cardHover: '#131b31',
+              border: '#1a2744',
+              borderLight: '#26375c',
+              textMuted: '#8ba1c7',
+              textMain: '#f1f5f9'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
+          },
+          keyframes: {
+            pulseSlow: {
+              '0%, 100%': { opacity: '1' },
+              '50%': { opacity: '0.4' }
+            },
+            scanner: {
+              '0%': { top: '0%' },
+              '100%': { top: '100%' }
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulseSlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'scanner': 'scanner 3s linear infinite'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons & Chart.js -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      background-color: #060913;
+      color: #f1f5f9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+    }
+    .font-mono-code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .glass-panel {
+      background: rgba(12, 18, 34, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(26, 39, 68, 0.8);
+    }
+    .glass-panel-hover:hover {
+      border-color: rgba(50, 108, 229, 0.5);
+      background: rgba(19, 27, 49, 0.95);
+    }
+    .glow-k8s {
+      box-shadow: 0 0 25px rgba(50, 108, 229, 0.2);
+    }
+    .glow-falco {
+      box-shadow: 0 0 25px rgba(0, 242, 254, 0.2);
+    }
+    .glow-threat {
+      box-shadow: 0 0 25px rgba(255, 42, 95, 0.25);
+    }
+    .glow-quarantine {
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #060913;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1a2744;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #326ce5;
+    }
+    .grid-bg {
+      background-size: 32px 32px;
+      background-image: 
+        linear-gradient(to right, rgba(26, 39, 68, 0.25) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(26, 39, 68, 0.25) 1px, transparent 1px);
+    }
+  </style>
+</head>
+<body class="grid-bg min-h-screen flex flex-col selection:bg-k8s selection:text-white">
+
+  <!-- ========================================================================= -->
+  <!-- TOP HEADER / BRAND BAR                                                    -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-50 glass-panel border-b border-cyber-border">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Project Title -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-k8s to-falco-cyan flex items-center justify-center p-0.5 glow-k8s shadow-lg">
+          <div class="w-full h-full bg-cyber-bg rounded-[10px] flex items-center justify-center">
+            <i data-lucide="shield-alert" class="w-5 h-5 text-falco-cyan"></i>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="text-base font-extrabold tracking-wider bg-gradient-to-r from-white via-slate-200 to-k8s-light bg-clip-text text-transparent">
+              KUBESENTINEL
+            </span>
+            <span class="px-2 py-0.5 text-[10px] font-bold uppercase rounded-full bg-k8s/20 text-k8s-light border border-k8s/40">
+              eBPF SOAR
+            </span>
+          </div>
+          <p class="text-[11px] text-cyber-textMuted tracking-tight">Kubernetes Runtime Security & Incident Response Platform</p>
+        </div>
+      </div>
+
+      <!-- Live Heartbeat Telemetry Status -->
+      <div class="hidden md:flex items-center space-x-3 text-xs">
+        <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-card border border-cyber-border">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-quarantine opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-quarantine"></span>
+          </span>
+          <span class="text-cyber-textMuted">Cluster:</span>
+          <span class="font-mono-code font-semibold text-slate-200">kind-security-lab</span>
+        </div>
+        <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-card border border-cyber-border">
+          <i data-lucide="cpu" class="w-3.5 h-3.5 text-falco-cyan"></i>
+          <span class="text-cyber-textMuted">Driver:</span>
+          <span class="font-mono-code font-semibold text-falco-cyan">modern_ebpf</span>
+        </div>
+        <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-card border border-cyber-border">
+          <i data-lucide="network" class="w-3.5 h-3.5 text-k8s-light"></i>
+          <span class="text-cyber-textMuted">CNI:</span>
+          <span class="font-mono-code font-semibold text-k8s-light">Calico v3.28</span>
+        </div>
+      </div>
+
+      <!-- External Links & Actions -->
+      <div class="flex items-center space-x-2">
+        <a href="https://github.com/ravishkarathnayaka/Kubernetes-Runtime-Security-Cloud-Native-Incident-Response-Platform." target="_blank" 
+           class="flex items-center space-x-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border hover:border-k8s/50 text-slate-200 transition-all duration-200">
+          <i data-lucide="github" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Repository</span>
+        </a>
+        <button onclick="triggerAttackSimulation('token_harvest')" 
+                class="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-threat to-rose-600 hover:from-rose-600 hover:to-threat text-white shadow-lg glow-threat transition-all duration-200">
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+          <span>Simulate Attack</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Navigation Tabs Bar -->
+    <div class="border-t border-cyber-border/60 bg-cyber-card/70 px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto flex space-x-1 overflow-x-auto py-1 text-xs">
+        <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn active px-3 py-2 rounded-md font-semibold text-k8s-light bg-k8s/10 border-b-2 border-k8s flex items-center space-x-1.5">
+          <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+          <span>Dashboard</span>
+        </button>
+        <button onclick="switchTab('topology')" id="tab-topology" class="tab-btn px-3 py-2 rounded-md font-semibold text-cyber-textMuted hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="network" class="w-3.5 h-3.5"></i>
+          <span>Cluster Topology</span>
+        </button>
+        <button onclick="switchTab('simulator')" id="tab-simulator" class="tab-btn px-3 py-2 rounded-md font-semibold text-cyber-textMuted hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="shield-alert" class="w-3.5 h-3.5"></i>
+          <span>Attack Simulator</span>
+        </button>
+        <button onclick="switchTab('rules')" id="tab-rules" class="tab-btn px-3 py-2 rounded-md font-semibold text-cyber-textMuted hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="file-code-2" class="w-3.5 h-3.5"></i>
+          <span>Falco Rules & Policies</span>
+        </button>
+        <button onclick="switchTab('evidence')" id="tab-evidence" class="tab-btn px-3 py-2 rounded-md font-semibold text-cyber-textMuted hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="folder-archive" class="w-3.5 h-3.5"></i>
+          <span>Forensics Vault</span>
+        </button>
+        <button onclick="switchTab('mitre')" id="tab-mitre" class="tab-btn px-3 py-2 rounded-md font-semibold text-cyber-textMuted hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="target" class="w-3.5 h-3.5"></i>
+          <span>MITRE ATT&CK</span>
+        </button>
+        <button onclick="switchTab('benchmark')" id="tab-benchmark" class="tab-btn px-3 py-2 rounded-md font-semibold text-cyber-textMuted hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="check-check" class="w-3.5 h-3.5"></i>
+          <span>CIS Benchmark</span>
+        </button>
+        <button onclick="switchTab('guide')" id="tab-guide" class="tab-btn px-3 py-2 rounded-md font-semibold text-cyber-textMuted hover:text-white flex items-center space-x-1.5">
+          <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+          <span>Reproduction Guide</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN CONTAINER                                                            -->
+  <!-- ========================================================================= -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+    <!-- ======================================================================= -->
+    <!-- TAB 1: DASHBOARD OVERVIEW                                               -->
+    <!-- ======================================================================= -->
+    <section id="view-dashboard" class="tab-view space-y-8">
+
+      <!-- Executive Hero Banner -->
+      <div class="glass-panel rounded-2xl p-6 lg:p-8 relative overflow-hidden border border-cyber-border glow-k8s">
+        <div class="absolute -right-16 -bottom-16 w-80 h-80 bg-k8s/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -left-16 -top-16 w-80 h-80 bg-falco-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+          <div class="lg:col-span-2 space-y-3">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-k8s/20 border border-k8s/40 text-k8s-light text-xs font-semibold">
+              <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+              <span>Zero-Trust Kubernetes Runtime Defense</span>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Kernel-Level Detection with <span class="bg-gradient-to-r from-falco-cyan via-k8s-light to-quarantine bg-clip-text text-transparent">Instant Pod Containment</span>
+            </h1>
+            <p class="text-cyber-textMuted text-sm leading-relaxed max-w-2xl">
+              Captures suspicious in-cluster syscall anomalies (<span class="font-mono-code text-slate-200">execve</span>, <span class="font-mono-code text-slate-200">openat</span>) using Falco modern eBPF probes. Automatically triggers an asynchronous Python webhook controller to dynamically inject zero-traffic <span class="font-mono-code text-quarantine">NetworkPolicies</span>, snapshot container stdout/stderr forensics, and label compromised pods in under <strong>850 milliseconds</strong>.
+            </p>
+            <div class="pt-2 flex flex-wrap gap-3 text-xs">
+              <span class="px-3 py-1 rounded-md bg-cyber-card border border-cyber-border text-slate-300 flex items-center space-x-1.5 font-mono-code">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-quarantine"></i>
+                <span>$0 Kind Multi-Node Lab</span>
+              </span>
+              <span class="px-3 py-1 rounded-md bg-cyber-card border border-cyber-border text-slate-300 flex items-center space-x-1.5 font-mono-code">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-quarantine"></i>
+                <span>100% Ingress/Egress Drop</span>
+              </span>
+              <span class="px-3 py-1 rounded-md bg-cyber-card border border-cyber-border text-slate-300 flex items-center space-x-1.5 font-mono-code">
+                <i data-lucide="check" class="w-3.5 h-3.5 text-quarantine"></i>
+                <span>Evidence Forensic Vault</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Quick Action Card -->
+          <div class="glass-panel p-5 rounded-xl border border-cyber-border space-y-4 bg-cyber-bg/60">
+            <div class="flex items-center justify-between text-xs border-b border-cyber-border pb-3">
+              <span class="font-bold text-slate-200 flex items-center space-x-1.5">
+                <i data-lucide="radio" class="w-4 h-4 text-threat animate-pulse"></i>
+                <span>Quick Attack Trigger</span>
+              </span>
+              <span class="text-[10px] font-mono-code text-cyber-textMuted">Target: demo-workload</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="triggerAttackSimulation('token_harvest')" 
+                      class="p-2.5 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border hover:border-threat/60 text-left transition-all group">
+                <div class="text-[11px] font-bold text-slate-200 group-hover:text-threat flex items-center justify-between">
+                  <span>Token Harvest</span>
+                  <i data-lucide="key" class="w-3 h-3 text-threat"></i>
+                </div>
+                <div class="text-[10px] text-cyber-textMuted font-mono-code">T1552.007</div>
+              </button>
+              <button onclick="triggerAttackSimulation('terminal_shell')" 
+                      class="p-2.5 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border hover:border-amber-500/60 text-left transition-all group">
+                <div class="text-[11px] font-bold text-slate-200 group-hover:text-amber-400 flex items-center justify-between">
+                  <span>Exec Shell</span>
+                  <i data-lucide="terminal" class="w-3 h-3 text-amber-400"></i>
+                </div>
+                <div class="text-[10px] text-cyber-textMuted font-mono-code">T1059.004</div>
+              </button>
+              <button onclick="triggerAttackSimulation('container_escape')" 
+                      class="p-2.5 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border hover:border-purple-500/60 text-left transition-all group">
+                <div class="text-[11px] font-bold text-slate-200 group-hover:text-purple-400 flex items-center justify-between">
+                  <span>Host Escape</span>
+                  <i data-lucide="shield-off" class="w-3 h-3 text-purple-400"></i>
+                </div>
+                <div class="text-[10px] text-cyber-textMuted font-mono-code">T1611</div>
+              </button>
+              <button onclick="triggerAttackSimulation('outbound_c2')" 
+                      class="p-2.5 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border hover:border-blue-500/60 text-left transition-all group">
+                <div class="text-[11px] font-bold text-slate-200 group-hover:text-blue-400 flex items-center justify-between">
+                  <span>Outbound C2</span>
+                  <i data-lucide="wifi" class="w-3 h-3 text-blue-400"></i>
+                </div>
+                <div class="text-[10px] text-cyber-textMuted font-mono-code">T1071</div>
+              </button>
+            </div>
+            <div class="text-[11px] text-center text-cyber-textMuted flex items-center justify-center space-x-1">
+              <i data-lucide="info" class="w-3 h-3"></i>
+              <span>Simulates live detection in the cluster simulator</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Core Telemetry Metric Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        
+        <!-- Card 1: Active Workloads -->
+        <div class="glass-panel p-5 rounded-xl border border-cyber-border glass-panel-hover transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-cyber-textMuted uppercase tracking-wider">Cluster Workloads</span>
+            <div class="p-2 rounded-lg bg-k8s/10 border border-k8s/20 text-k8s-light">
+              <i data-lucide="boxes" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="mt-3 flex items-baseline space-x-2">
+            <span class="text-2xl sm:text-3xl font-extrabold text-white font-mono-code">24</span>
+            <span class="text-xs text-cyber-textMuted">Pods (4 Namespaces)</span>
+          </div>
+          <div class="mt-3 flex items-center space-x-2 text-[11px] text-slate-400">
+            <span class="w-2 h-2 rounded-full bg-quarantine"></span>
+            <span>3 Nodes (1 CP, 2 Workers)</span>
+          </div>
+        </div>
+
+        <!-- Card 2: eBPF Syscall Probes -->
+        <div class="glass-panel p-5 rounded-xl border border-cyber-border glass-panel-hover transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-cyber-textMuted uppercase tracking-wider">eBPF Telemetry</span>
+            <div class="p-2 rounded-lg bg-falco-cyan/10 border border-falco-cyan/20 text-falco-cyan">
+              <i data-lucide="activity" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="mt-3 flex items-baseline space-x-2">
+            <span class="text-2xl sm:text-3xl font-extrabold text-white font-mono-code">3 / 3</span>
+            <span class="text-xs text-cyber-textMuted">Nodes Hooked</span>
+          </div>
+          <div class="mt-3 flex items-center space-x-2 text-[11px] text-slate-400">
+            <span class="w-2 h-2 rounded-full bg-falco-cyan"></span>
+            <span>~4,200 syscalls/sec</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Threats Contained -->
+        <div class="glass-panel p-5 rounded-xl border border-cyber-border glass-panel-hover transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-cyber-textMuted uppercase tracking-wider">Threats Intercepted</span>
+            <div class="p-2 rounded-lg bg-threat/10 border border-threat/20 text-threat">
+              <i data-lucide="shield-alert" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="mt-3 flex items-baseline space-x-2">
+            <span class="text-2xl sm:text-3xl font-extrabold text-threat font-mono-code" id="metric-threats-count">14</span>
+            <span class="text-xs text-quarantine font-bold">100% Contained</span>
+          </div>
+          <div class="mt-3 flex items-center space-x-2 text-[11px] text-slate-400">
+            <span class="w-2 h-2 rounded-full bg-threat"></span>
+            <span>Zero Data Exfiltration</span>
+          </div>
+        </div>
+
+        <!-- Card 4: Mean Time to Containment -->
+        <div class="glass-panel p-5 rounded-xl border border-cyber-border glass-panel-hover transition-all">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-cyber-textMuted uppercase tracking-wider">Mean Response Time</span>
+            <div class="p-2 rounded-lg bg-quarantine/10 border border-quarantine/20 text-quarantine">
+              <i data-lucide="timer" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="mt-3 flex items-baseline space-x-2">
+            <span class="text-2xl sm:text-3xl font-extrabold text-quarantine font-mono-code">620 ms</span>
+            <span class="text-xs text-cyber-textMuted">Sub-second</span>
+          </div>
+          <div class="mt-3 flex items-center space-x-2 text-[11px] text-slate-400">
+            <span class="w-2 h-2 rounded-full bg-quarantine"></span>
+            <span>Webhook + NetPolicy Gen</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Charts Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Chart 1: Threat Distribution -->
+        <div class="glass-panel p-5 rounded-xl border border-cyber-border lg:col-span-1 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <i data-lucide="pie-chart" class="w-4 h-4 text-k8s-light"></i>
+              <span>Threat Tactic Breakdown</span>
+            </h3>
+            <span class="text-[10px] font-mono-code text-cyber-textMuted">MITRE ATT&CK</span>
+          </div>
+          <div class="h-56 relative flex items-center justify-center">
+            <canvas id="threatPieChart"></canvas>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-[11px] font-mono-code pt-2 border-t border-cyber-border">
+            <div class="flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-threat"></span><span>Token Harvest (42%)</span></div>
+            <div class="flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span><span>Shell Exec (28%)</span></div>
+            <div class="flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-purple-400"></span><span>Host Escape (16%)</span></div>
+            <div class="flex items-center space-x-1.5"><span class="w-2 h-2 rounded-full bg-blue-400"></span><span>Outbound C2 (14%)</span></div>
+          </div>
+        </div>
+
+        <!-- Chart 2: Syscall Telemetry Timeline -->
+        <div class="glass-panel p-5 rounded-xl border border-cyber-border lg:col-span-2 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+              <i data-lucide="trending-up" class="w-4 h-4 text-falco-cyan"></i>
+              <span>eBPF Telemetry & Containment Latency (ms)</span>
+            </h3>
+            <div class="flex items-center space-x-2 text-[11px]">
+              <span class="flex items-center space-x-1 text-slate-300 font-mono-code">
+                <span class="w-2 h-2 rounded-full bg-falco-cyan"></span>
+                <span>Syscall Ingestion</span>
+              </span>
+              <span class="flex items-center space-x-1 text-slate-300 font-mono-code">
+                <span class="w-2 h-2 rounded-full bg-threat"></span>
+                <span>NetPolicy Isolation</span>
+              </span>
+            </div>
+          </div>
+          <div class="h-56 relative">
+            <canvas id="telemetryLineChart"></canvas>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-cyber-textMuted border-t border-cyber-border pt-2">
+            <span>Avg Controller Processing: <strong class="text-slate-200">18ms</strong></span>
+            <span>K8s API NetworkPolicy Apply: <strong class="text-slate-200">32ms</strong></span>
+            <span>Total Containment Cycle: <strong class="text-quarantine font-bold">&lt; 850ms</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Incidents Feed -->
+      <div class="glass-panel rounded-xl border border-cyber-border overflow-hidden">
+        <div class="p-4 border-b border-cyber-border flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <i data-lucide="list-tree" class="w-4 h-4 text-slate-300"></i>
+            <h3 class="text-sm font-bold text-white">Live In-Cluster Incident Stream</h3>
+          </div>
+          <span class="text-xs text-quarantine font-mono-code flex items-center space-x-1">
+            <span class="w-2 h-2 rounded-full bg-quarantine animate-ping"></span>
+            <span>Listening on /webhook:8080</span>
+          </span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs font-mono-code">
+            <thead class="bg-cyber-card/80 text-cyber-textMuted uppercase text-[10px] border-b border-cyber-border">
+              <tr>
+                <th class="py-3 px-4">Incident ID</th>
+                <th class="py-3 px-4">Severity</th>
+                <th class="py-3 px-4">Triggered Rule</th>
+                <th class="py-3 px-4">Target Namespace/Pod</th>
+                <th class="py-3 px-4">Response Action</th>
+                <th class="py-3 px-4">Status</th>
+              </tr>
+            </thead>
+            <tbody id="incidents-table-body" class="divide-y divide-cyber-border/40 text-slate-300">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 2: CLUSTER TOPOLOGY & NODE MAP                                      -->
+    <!-- ======================================================================= -->
+    <section id="view-topology" class="tab-view hidden space-y-6">
+      
+      <div class="glass-panel rounded-xl p-6 border border-cyber-border">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyber-border pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="network" class="w-5 h-5 text-k8s-light"></i>
+              <span>Multi-Node Kubernetes Security Architecture</span>
+            </h2>
+            <p class="text-xs text-cyber-textMuted mt-1">
+              Cluster <span class="font-mono-code text-slate-200">security-lab</span> running on Kind with 3 nodes, modern eBPF probes, and Calico CNI NetworkPolicy enforcement.
+            </p>
+          </div>
+          <div class="flex items-center space-x-2 text-xs font-mono-code">
+            <span class="px-2.5 py-1 rounded bg-quarantine/20 text-quarantine border border-quarantine/40">Calico CNI Active</span>
+            <span class="px-2.5 py-1 rounded bg-falco-cyan/20 text-falco-cyan border border-falco-cyan/40">eBPF Hooked</span>
+          </div>
+        </div>
+
+        <!-- Node Map Layout -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+          
+          <!-- Node 1: Control Plane -->
+          <div class="glass-panel rounded-xl p-4 border border-cyber-border bg-cyber-bg/70 space-y-3">
+            <div class="flex items-center justify-between border-b border-cyber-border pb-2">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="server" class="w-4 h-4 text-k8s-light"></i>
+                <span class="font-bold text-white text-xs font-mono-code">kind-control-plane</span>
+              </div>
+              <span class="px-1.5 py-0.5 text-[10px] rounded bg-k8s/20 text-k8s-light">Master</span>
+            </div>
+            <div class="text-[11px] text-cyber-textMuted space-y-1">
+              <div>Role: <span class="text-slate-300">control-plane,etcd</span></div>
+              <div>eBPF Mounts: <span class="font-mono-code text-falco-cyan">/sys/kernel/debug</span></div>
+            </div>
+            
+            <div class="space-y-2 pt-2">
+              <div class="text-[10px] uppercase font-bold text-cyber-textMuted">Hosted Pods</div>
+              
+              <!-- Pod item -->
+              <div onclick="inspectPod('kube-apiserver', 'kube-system', 'Active', 'Standard API Server')" 
+                   class="cursor-pointer p-2 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border text-xs flex items-center justify-between">
+                <span class="font-mono-code text-slate-200">kube-apiserver</span>
+                <span class="w-2 h-2 rounded-full bg-quarantine"></span>
+              </div>
+              <div onclick="inspectPod('etcd-control-plane', 'kube-system', 'Active', 'Cluster State Store')" 
+                   class="cursor-pointer p-2 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border text-xs flex items-center justify-between">
+                <span class="font-mono-code text-slate-200">etcd</span>
+                <span class="w-2 h-2 rounded-full bg-quarantine"></span>
+              </div>
+              <div onclick="inspectPod('falco-node-cp', 'falco', 'Active', 'Modern eBPF DaemonSet Sensor')" 
+                   class="cursor-pointer p-2 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-falco-cyan/30 text-xs flex items-center justify-between">
+                <span class="font-mono-code text-falco-cyan">falco-ebpf-cp</span>
+                <i data-lucide="shield" class="w-3.5 h-3.5 text-falco-cyan"></i>
+              </div>
+              <div onclick="inspectPod('coredns', 'kube-system', 'Active', 'Cluster DNS Resolver')" 
+                   class="cursor-pointer p-2 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border text-xs flex items-center justify-between">
+                <span class="font-mono-code text-slate-200">coredns-55f</span>
+                <span class="w-2 h-2 rounded-full bg-quarantine"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Node 2: Worker 1 (Workload Node) -->
+          <div class="glass-panel rounded-xl p-4 border border-cyber-border bg-cyber-bg/70 space-y-3">
+            <div class="flex items-center justify-between border-b border-cyber-border pb-2">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="hard-drive" class="w-4 h-4 text-slate-300"></i>
+                <span class="font-bold text-white text-xs font-mono-code">kind-worker</span>
+              </div>
+              <span class="px-1.5 py-0.5 text-[10px] rounded bg-slate-700 text-slate-300">Worker 1</span>
+            </div>
+            <div class="text-[11px] text-cyber-textMuted space-y-1">
+              <div>Role: <span class="text-slate-300">workload-runner</span></div>
+              <div>Subnet: <span class="font-mono-code text-slate-300">192.168.1.0/24</span></div>
+            </div>
+            
+            <div class="space-y-2 pt-2">
+              <div class="text-[10px] uppercase font-bold text-cyber-textMuted">Hosted Pods</div>
+
+              <!-- Compromised workload pod -->
+              <div onclick="inspectPod('compromised-workload', 'demo', 'Quarantined', 'Target Victim Pod')" 
+                   class="cursor-pointer p-2.5 rounded-lg bg-threat/10 hover:bg-threat/20 border border-threat/50 text-xs flex items-center justify-between shadow-lg glow-threat">
+                <div>
+                  <div class="font-mono-code font-bold text-threat">compromised-workload</div>
+                  <div class="text-[10px] text-slate-300">security.incident/quarantined=true</div>
+                </div>
+                <i data-lucide="lock" class="w-4 h-4 text-threat"></i>
+              </div>
+
+              <div onclick="inspectPod('falco-node-w1', 'falco', 'Active', 'Modern eBPF DaemonSet Sensor')" 
+                   class="cursor-pointer p-2 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-falco-cyan/30 text-xs flex items-center justify-between">
+                <span class="font-mono-code text-falco-cyan">falco-ebpf-w1</span>
+                <i data-lucide="shield" class="w-3.5 h-3.5 text-falco-cyan"></i>
+              </div>
+
+              <div onclick="inspectPod('calico-node-w1', 'kube-system', 'Active', 'Calico BGP & Packet Filter Engine')" 
+                   class="cursor-pointer p-2 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border text-xs flex items-center justify-between">
+                <span class="font-mono-code text-slate-200">calico-node-w1</span>
+                <span class="w-2 h-2 rounded-full bg-quarantine"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Node 3: Worker 2 (Controller & Services) -->
+          <div class="glass-panel rounded-xl p-4 border border-cyber-border bg-cyber-bg/70 space-y-3">
+            <div class="flex items-center justify-between border-b border-cyber-border pb-2">
+              <div class="flex items-center space-x-2">
+                <i data-lucide="hard-drive" class="w-4 h-4 text-slate-300"></i>
+                <span class="font-bold text-white text-xs font-mono-code">kind-worker2</span>
+              </div>
+              <span class="px-1.5 py-0.5 text-[10px] rounded bg-slate-700 text-slate-300">Worker 2</span>
+            </div>
+            <div class="text-[11px] text-cyber-textMuted space-y-1">
+              <div>Role: <span class="text-slate-300">security-controller</span></div>
+              <div>Subnet: <span class="font-mono-code text-slate-300">192.168.2.0/24</span></div>
+            </div>
+            
+            <div class="space-y-2 pt-2">
+              <div class="text-[10px] uppercase font-bold text-cyber-textMuted">Hosted Pods</div>
+
+              <!-- Response Controller pod -->
+              <div onclick="inspectPod('falco-response-controller', 'falco-response', 'Active', 'Automated SOAR Quarantine Controller')" 
+                   class="cursor-pointer p-2.5 rounded-lg bg-k8s/15 hover:bg-k8s/25 border border-k8s/50 text-xs flex items-center justify-between glow-k8s">
+                <div>
+                  <div class="font-mono-code font-bold text-k8s-light">falco-response-controller</div>
+                  <div class="text-[10px] text-cyber-textMuted">FastAPI Webhook :8080</div>
+                </div>
+                <i data-lucide="zap" class="w-4 h-4 text-k8s-light"></i>
+              </div>
+
+              <div onclick="inspectPod('falco-node-w2', 'falco', 'Active', 'Modern eBPF DaemonSet Sensor')" 
+                   class="cursor-pointer p-2 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-falco-cyan/30 text-xs flex items-center justify-between">
+                <span class="font-mono-code text-falco-cyan">falco-ebpf-w2</span>
+                <i data-lucide="shield" class="w-3.5 h-3.5 text-falco-cyan"></i>
+              </div>
+
+              <div onclick="inspectPod('calico-node-w2', 'kube-system', 'Active', 'Calico BGP & Packet Filter Engine')" 
+                   class="cursor-pointer p-2 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border text-xs flex items-center justify-between">
+                <span class="font-mono-code text-slate-200">calico-node-w2</span>
+                <span class="w-2 h-2 rounded-full bg-quarantine"></span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pod Detail Drawer Modal -->
+        <div id="pod-inspector-modal" class="hidden mt-6 p-4 rounded-xl bg-cyber-bg border border-k8s/40 text-xs space-y-3">
+          <div class="flex items-center justify-between border-b border-cyber-border pb-2">
+            <span class="font-bold text-white flex items-center space-x-2">
+              <i data-lucide="info" class="w-4 h-4 text-k8s-light"></i>
+              <span id="inspect-pod-name">Pod Details</span>
+            </span>
+            <button onclick="document.getElementById('pod-inspector-modal').classList.add('hidden')" class="text-cyber-textMuted hover:text-white">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-cyber-textMuted font-mono-code">
+            <div>Namespace: <span id="inspect-pod-ns" class="text-slate-200">demo</span></div>
+            <div>Status: <span id="inspect-pod-status" class="text-threat font-bold">Quarantined</span></div>
+            <div>Isolation Policy: <span id="inspect-pod-policy" class="text-quarantine font-bold">quarantine-compromised-workload</span></div>
+            <div>Egress Dropped: <span class="text-threat font-bold">100% (TCP/UDP)</span></div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 3: ATTACK SIMULATOR & PLAYBACK                                      -->
+    <!-- ======================================================================= -->
+    <section id="view-simulator" class="tab-view hidden space-y-6">
+
+      <div class="glass-panel rounded-xl p-6 border border-cyber-border">
+        <div class="border-b border-cyber-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="shield-alert" class="w-5 h-5 text-threat"></i>
+              <span>Live Kubernetes Runtime Threat Simulator</span>
+            </h2>
+            <p class="text-xs text-cyber-textMuted mt-1">
+              Trigger malicious container behaviors and watch the 5-stage automated containment pipeline in real time.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="triggerAttackSimulation('token_harvest')" class="px-3 py-1.5 rounded-lg bg-threat/20 hover:bg-threat/30 text-threat border border-threat/40 text-xs font-bold font-mono-code flex items-center space-x-1.5">
+              <i data-lucide="key" class="w-3.5 h-3.5"></i>
+              <span>Attack 1: Token Harvest</span>
+            </button>
+            <button onclick="triggerAttackSimulation('terminal_shell')" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-xs font-bold font-mono-code flex items-center space-x-1.5">
+              <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+              <span>Attack 2: Exec Shell</span>
+            </button>
+            <button onclick="triggerAttackSimulation('container_escape')" class="px-3 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 border border-purple-500/40 text-xs font-bold font-mono-code flex items-center space-x-1.5">
+              <i data-lucide="shield-off" class="w-3.5 h-3.5"></i>
+              <span>Attack 3: Host Escape</span>
+            </button>
+            <button onclick="triggerAttackSimulation('outbound_c2')" class="px-3 py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/40 text-xs font-bold font-mono-code flex items-center space-x-1.5">
+              <i data-lucide="wifi" class="w-3.5 h-3.5"></i>
+              <span>Attack 4: Outbound C2</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 5-Stage Automated Containment Stepper -->
+        <div class="py-6">
+          <div class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+            
+            <div id="step-1" class="step-card p-3.5 rounded-xl bg-cyber-card border border-cyber-border text-center space-y-1.5 transition-all">
+              <div class="w-7 h-7 mx-auto rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs font-mono-code step-number">1</div>
+              <div class="text-xs font-bold text-slate-200">Adversary Action</div>
+              <div class="text-[10px] text-cyber-textMuted font-mono-code">Syscall Triggered</div>
+            </div>
+
+            <div id="step-2" class="step-card p-3.5 rounded-xl bg-cyber-card border border-cyber-border text-center space-y-1.5 transition-all">
+              <div class="w-7 h-7 mx-auto rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs font-mono-code step-number">2</div>
+              <div class="text-xs font-bold text-slate-200">Falco eBPF Hook</div>
+              <div class="text-[10px] text-cyber-textMuted font-mono-code">Rule Matched</div>
+            </div>
+
+            <div id="step-3" class="step-card p-3.5 rounded-xl bg-cyber-card border border-cyber-border text-center space-y-1.5 transition-all">
+              <div class="w-7 h-7 mx-auto rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs font-mono-code step-number">3</div>
+              <div class="text-xs font-bold text-slate-200">FastAPI Webhook</div>
+              <div class="text-[10px] text-cyber-textMuted font-mono-code">Alert Ingestion</div>
+            </div>
+
+            <div id="step-4" class="step-card p-3.5 rounded-xl bg-cyber-card border border-cyber-border text-center space-y-1.5 transition-all">
+              <div class="w-7 h-7 mx-auto rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs font-mono-code step-number">4</div>
+              <div class="text-xs font-bold text-slate-200">Evidence Capture</div>
+              <div class="text-[10px] text-cyber-textMuted font-mono-code">Logs & Pod YAML Dump</div>
+            </div>
+
+            <div id="step-5" class="step-card p-3.5 rounded-xl bg-cyber-card border border-cyber-border text-center space-y-1.5 transition-all">
+              <div class="w-7 h-7 mx-auto rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs font-mono-code step-number">5</div>
+              <div class="text-xs font-bold text-slate-200">Total Isolation</div>
+              <div class="text-[10px] text-cyber-textMuted font-mono-code">NetworkPolicy Applied</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Simulated Live Terminal Window -->
+        <div class="rounded-xl bg-[#04060b] border border-cyber-border overflow-hidden shadow-2xl">
+          <div class="px-4 py-2.5 bg-cyber-card border-b border-cyber-border flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2">
+              <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
+              <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
+              <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+              <span class="ml-2 font-mono-code text-cyber-textMuted">root@kind-worker:~/simulations# ./run_all_simulations.sh</span>
+            </div>
+            <div class="flex items-center space-x-2 font-mono-code text-[11px] text-cyber-textMuted">
+              <span id="term-status-badge" class="px-2 py-0.5 rounded bg-quarantine/20 text-quarantine">Ready</span>
+              <button onclick="clearTerminal()" class="hover:text-white"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </div>
+          
+          <div id="terminal-content" class="p-4 font-mono-code text-xs text-slate-300 h-80 overflow-y-auto space-y-1">
+            <div class="text-slate-500"># System initialized. Ready to execute live attack vectors.</div>
+            <div class="text-slate-500"># Click any attack trigger button above to simulate in-cluster compromise & containment.</div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 4: FALCO RULES & POLICIES                                           -->
+    <!-- ======================================================================= -->
+    <section id="view-rules" class="tab-view hidden space-y-6">
+
+      <div class="glass-panel rounded-xl p-6 border border-cyber-border space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <i data-lucide="file-code-2" class="w-5 h-5 text-falco-cyan"></i>
+            <span>Falco Behavioral eBPF Detection Rules</span>
+          </h2>
+          <p class="text-xs text-cyber-textMuted mt-1">
+            Production-grade rules deployed across the cluster via <span class="font-mono-code text-slate-200">falco-custom-rules</span> ConfigMap.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Rule 1 -->
+          <div class="glass-panel rounded-xl p-4 border border-cyber-border space-y-3 bg-cyber-bg/60">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs">k8s_token_access.yaml</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-threat/20 text-threat border border-threat/30">CRITICAL</span>
+            </div>
+            <p class="text-[11px] text-cyber-textMuted">Detects unauthorized processes reading Kubernetes serviceaccount tokens.</p>
+            <pre class="p-3 rounded-lg bg-[#04060b] text-[11px] font-mono-code text-slate-300 overflow-x-auto border border-cyber-border"><code>- rule: Unauthorized Service Account Token Access
+  desc: Detects token harvest attempts
+  condition: >
+    open_read and container and
+    fd.name glob "/var/run/secrets/kubernetes.io/serviceaccount/token*" and
+    not proc.name in (pause, kube-proxy, coredns)
+  priority: CRITICAL
+  tags: [credential_harvesting, T1552.007]</code></pre>
+          </div>
+
+          <!-- Rule 2 -->
+          <div class="glass-panel rounded-xl p-4 border border-cyber-border space-y-3 bg-cyber-bg/60">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs">k8s_exec_terminal.yaml</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">WARNING</span>
+            </div>
+            <p class="text-[11px] text-cyber-textMuted">Detects interactive shell (bash, sh, zsh) spawned inside pod container.</p>
+            <pre class="p-3 rounded-lg bg-[#04060b] text-[11px] font-mono-code text-slate-300 overflow-x-auto border border-cyber-border"><code>- rule: Interactive Shell Spawned Inside Pod
+  desc: Detects interactive bash or shell session
+  condition: >
+    spawned_process and container and
+    (proc.name in (bash, sh, zsh, ash) or proc.cmdline contains "sh") and
+    not proc.pname in (containerd-shim, runc)
+  priority: WARNING
+  tags: [shell, mitre_execution, T1059]</code></pre>
+          </div>
+
+          <!-- Rule 3 -->
+          <div class="glass-panel rounded-xl p-4 border border-cyber-border space-y-3 bg-cyber-bg/60">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs">k8s_container_escape.yaml</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-threat/20 text-threat border border-threat/30">CRITICAL</span>
+            </div>
+            <p class="text-[11px] text-cyber-textMuted">Detects breakout attempts via namespace changes, nsenter, or /proc tampering.</p>
+            <pre class="p-3 rounded-lg bg-[#04060b] text-[11px] font-mono-code text-slate-300 overflow-x-auto border border-cyber-border"><code>- rule: Container Escape Attempt
+  desc: Detects breakout via sensitive host paths
+  condition: >
+    container and
+    ((evt.type in (mount, setns, unshare)) or
+     (open_write and fd.name startswith "/proc/sysrq-trigger") or
+     (spawned_process and proc.name in (nsenter, chroot)))
+  priority: CRITICAL
+  tags: [escape, privilege_escalation, T1611]</code></pre>
+          </div>
+
+          <!-- Rule 4 -->
+          <div class="glass-panel rounded-xl p-4 border border-cyber-border space-y-3 bg-cyber-bg/60">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white text-xs">quarantine-template.yaml</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-quarantine/20 text-quarantine border border-quarantine/30">CONTAINMENT</span>
+            </div>
+            <p class="text-[11px] text-cyber-textMuted">Dynamic zero-traffic NetworkPolicy synthesized by the Python controller.</p>
+            <pre class="p-3 rounded-lg bg-[#04060b] text-[11px] font-mono-code text-slate-300 overflow-x-auto border border-cyber-border"><code>apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: quarantine-compromised-workload
+spec:
+  podSelector:
+    matchLabels:
+      security.incident/target-pod: compromised-workload
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress: []</code></pre>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 5: FORENSICS VAULT                                                  -->
+    <!-- ======================================================================= -->
+    <section id="view-evidence" class="tab-view hidden space-y-6">
+
+      <div class="glass-panel rounded-xl p-6 border border-cyber-border space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyber-border pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="folder-archive" class="w-5 h-5 text-quarantine"></i>
+              <span>Digital Forensics Evidence Vault</span>
+            </h2>
+            <p class="text-xs text-cyber-textMuted mt-1">
+              Snapshots saved in <span class="font-mono-code text-slate-200">/evidence/&lt;incident_id&gt;</span> before network severance takes effect.
+            </p>
+          </div>
+          <div class="flex items-center space-x-2 text-xs font-mono-code">
+            <button onclick="downloadEvidenceBundle()" class="px-3 py-1.5 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border text-slate-200 flex items-center space-x-1.5">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Export Evidence JSON</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Evidence File Tabs -->
+        <div class="flex space-x-2 border-b border-cyber-border text-xs font-mono-code">
+          <button onclick="switchEvidenceFile('alert')" id="ev-tab-alert" class="px-3 py-2 text-falco-cyan font-bold border-b-2 border-falco-cyan">falco_alert.json</button>
+          <button onclick="switchEvidenceFile('manifest')" id="ev-tab-manifest" class="px-3 py-2 text-cyber-textMuted hover:text-white">pod_manifest_dump.yaml</button>
+          <button onclick="switchEvidenceFile('logs')" id="ev-tab-logs" class="px-3 py-2 text-cyber-textMuted hover:text-white">container_app.log</button>
+          <button onclick="switchEvidenceFile('policy')" id="ev-tab-policy" class="px-3 py-2 text-cyber-textMuted hover:text-white">quarantine_policy.yaml</button>
+        </div>
+
+        <!-- Code Viewer -->
+        <div class="rounded-xl bg-[#04060b] border border-cyber-border p-4 relative">
+          <button onclick="copyCurrentEvidence()" class="absolute top-3 right-3 px-2 py-1 rounded bg-cyber-card text-[11px] text-cyber-textMuted hover:text-white flex items-center space-x-1 border border-cyber-border">
+            <i data-lucide="copy" class="w-3 h-3"></i>
+            <span id="copy-btn-text">Copy</span>
+          </button>
+          <pre class="text-xs font-mono-code text-slate-300 overflow-x-auto max-h-96"><code id="evidence-viewer-content"></code></pre>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 6: MITRE ATT&CK MATRIX                                              -->
+    <!-- ======================================================================= -->
+    <section id="view-mitre" class="tab-view hidden space-y-6">
+
+      <div class="glass-panel rounded-xl p-6 border border-cyber-border space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <i data-lucide="target" class="w-5 h-5 text-threat"></i>
+            <span>MITRE ATT&CK for Containers Matrix Mapping</span>
+          </h2>
+          <p class="text-xs text-cyber-textMuted mt-1">
+            Tactics and techniques intercepted by Falco eBPF detection and contained by the Python response controller.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <!-- Column 1: Execution -->
+          <div class="space-y-3">
+            <div class="p-2.5 rounded-lg bg-cyber-card border border-cyber-border text-center text-xs font-bold text-amber-400">
+              Execution (TA0002)
+            </div>
+            <div class="p-3 rounded-lg bg-cyber-bg/80 border border-cyber-border space-y-1.5 text-xs">
+              <div class="font-bold text-white flex items-center justify-between">
+                <span>T1059.004</span>
+                <span class="text-[10px] text-amber-400 font-mono-code">WARNING</span>
+              </div>
+              <div class="text-cyber-textMuted text-[11px]">Command and Scripting Interpreter: Unix Shell</div>
+              <div class="text-[10px] font-mono-code text-slate-400">Rule: k8s_exec_terminal.yaml</div>
+            </div>
+          </div>
+
+          <!-- Column 2: Privilege Escalation -->
+          <div class="space-y-3">
+            <div class="p-2.5 rounded-lg bg-cyber-card border border-cyber-border text-center text-xs font-bold text-purple-400">
+              Privilege Escalation (TA0004)
+            </div>
+            <div class="p-3 rounded-lg bg-cyber-bg/80 border border-cyber-border space-y-1.5 text-xs">
+              <div class="font-bold text-white flex items-center justify-between">
+                <span>T1611</span>
+                <span class="text-[10px] text-threat font-mono-code">CRITICAL</span>
+              </div>
+              <div class="text-cyber-textMuted text-[11px]">Escape to Host via Mount / Namespace Change</div>
+              <div class="text-[10px] font-mono-code text-slate-400">Rule: k8s_container_escape.yaml</div>
+            </div>
+          </div>
+
+          <!-- Column 3: Credential Access -->
+          <div class="space-y-3">
+            <div class="p-2.5 rounded-lg bg-cyber-card border border-cyber-border text-center text-xs font-bold text-threat">
+              Credential Access (TA0006)
+            </div>
+            <div class="p-3 rounded-lg bg-cyber-bg/80 border border-cyber-border space-y-1.5 text-xs">
+              <div class="font-bold text-white flex items-center justify-between">
+                <span>T1552.007</span>
+                <span class="text-[10px] text-threat font-mono-code">CRITICAL</span>
+              </div>
+              <div class="text-cyber-textMuted text-[11px]">Unsecured Credentials: Container API Tokens</div>
+              <div class="text-[10px] font-mono-code text-slate-400">Rule: k8s_token_access.yaml</div>
+            </div>
+          </div>
+
+          <!-- Column 4: Command and Control -->
+          <div class="space-y-3">
+            <div class="p-2.5 rounded-lg bg-cyber-card border border-cyber-border text-center text-xs font-bold text-blue-400">
+              Command & Control (TA0011)
+            </div>
+            <div class="p-3 rounded-lg bg-cyber-bg/80 border border-cyber-border space-y-1.5 text-xs">
+              <div class="font-bold text-white flex items-center justify-between">
+                <span>T1071</span>
+                <span class="text-[10px] text-blue-400 font-mono-code">WARNING</span>
+              </div>
+              <div class="text-cyber-textMuted text-[11px]">Application Layer Protocol: Non-Standard Port</div>
+              <div class="text-[10px] font-mono-code text-slate-400">Rule: k8s_outbound_c2.yaml</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 7: CIS KUBERNETES BENCHMARK                                         -->
+    <!-- ======================================================================= -->
+    <section id="view-benchmark" class="tab-view hidden space-y-6">
+
+      <div class="glass-panel rounded-xl p-6 border border-cyber-border space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyber-border pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+              <i data-lucide="check-check" class="w-5 h-5 text-quarantine"></i>
+              <span>CIS Kubernetes Benchmark Audit (kube-bench)</span>
+            </h2>
+            <p class="text-xs text-cyber-textMuted mt-1">
+              Automated audit evaluating control-plane and worker configurations against the Center for Internet Security standard.
+            </p>
+          </div>
+          <div class="flex items-center space-x-2 text-xs font-mono-code">
+            <span class="px-3 py-1 rounded bg-quarantine/20 text-quarantine border border-quarantine/40 font-bold">84% Pass Rate</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 rounded-xl bg-cyber-bg border border-cyber-border text-center space-y-1">
+            <div class="text-2xl font-extrabold text-quarantine font-mono-code">48</div>
+            <div class="text-xs text-slate-300 font-bold">Checks Passed</div>
+          </div>
+          <div class="p-4 rounded-xl bg-cyber-bg border border-cyber-border text-center space-y-1">
+            <div class="text-2xl font-extrabold text-amber-400 font-mono-code">6</div>
+            <div class="text-xs text-slate-300 font-bold">Warnings / Reviews</div>
+          </div>
+          <div class="p-4 rounded-xl bg-cyber-bg border border-cyber-border text-center space-y-1">
+            <div class="text-2xl font-extrabold text-threat font-mono-code">2</div>
+            <div class="text-xs text-slate-300 font-bold">Failures (Kind In-Docker Env)</div>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <div class="text-xs font-bold text-white uppercase tracking-wider">Benchmark Section Highlights</div>
+          
+          <div class="space-y-2 text-xs font-mono-code">
+            <div class="p-3 rounded-lg bg-cyber-card border border-cyber-border flex items-center justify-between">
+              <div>
+                <span class="text-quarantine font-bold">[PASS]</span>
+                <span class="ml-2 text-slate-200">1.2.1 Ensure that the --anonymous-auth argument is set to false</span>
+              </div>
+              <span class="text-cyber-textMuted">API Server</span>
+            </div>
+            <div class="p-3 rounded-lg bg-cyber-card border border-cyber-border flex items-center justify-between">
+              <div>
+                <span class="text-quarantine font-bold">[PASS]</span>
+                <span class="ml-2 text-slate-200">2.1 Ensure that the --cert-file and --key-file arguments are set as appropriate</span>
+              </div>
+              <span class="text-cyber-textMuted">Etcd Node</span>
+            </div>
+            <div class="p-3 rounded-lg bg-cyber-card border border-cyber-border flex items-center justify-between">
+              <div>
+                <span class="text-quarantine font-bold">[PASS]</span>
+                <span class="ml-2 text-slate-200">3.2.1 Ensure that a minimal admission control configuration is applied</span>
+              </div>
+              <span class="text-cyber-textMuted">Policies</span>
+            </div>
+            <div class="p-3 rounded-lg bg-cyber-card border border-cyber-border flex items-center justify-between">
+              <div>
+                <span class="text-amber-400 font-bold">[WARN]</span>
+                <span class="ml-2 text-slate-200">4.1.1 Ensure that the kubelet service file permissions are 600 or more restrictive</span>
+              </div>
+              <span class="text-cyber-textMuted">Kubelet Node</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ======================================================================= -->
+    <!-- TAB 8: REPRODUCTION & LAB GUIDE                                         -->
+    <!-- ======================================================================= -->
+    <section id="view-guide" class="tab-view hidden space-y-6">
+
+      <div class="glass-panel rounded-xl p-6 border border-cyber-border space-y-6">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <i data-lucide="terminal" class="w-5 h-5 text-k8s-light"></i>
+            <span>Local Lab Reproduction Guide ($0 Kind Cluster)</span>
+          </h2>
+          <p class="text-xs text-cyber-textMuted mt-1">
+            Run the entire architecture locally on Linux or Windows via WSL2 + Docker Desktop.
+          </p>
+        </div>
+
+        <div class="space-y-4">
+          
+          <div class="space-y-2">
+            <h3 class="text-sm font-bold text-slate-200">Step 1: Clone Repository</h3>
+            <pre class="p-3 rounded-lg bg-[#04060b] text-xs font-mono-code text-slate-300 border border-cyber-border"><code>git clone https://github.com/ravishkarathnayaka/Kubernetes-Runtime-Security-Cloud-Native-Incident-Response-Platform..git
+cd "Kubernetes-Runtime-Security-Cloud-Native-Incident-Response-Platform."</code></pre>
+          </div>
+
+          <div class="space-y-2">
+            <h3 class="text-sm font-bold text-slate-200">Step 2: Bootstrap Multi-Node Kind Cluster & Deploy Stack</h3>
+            <pre class="p-3 rounded-lg bg-[#04060b] text-xs font-mono-code text-slate-300 border border-cyber-border"><code>chmod +x cluster/setup_cluster.sh
+./cluster/setup_cluster.sh</code></pre>
+          </div>
+
+          <div class="space-y-2">
+            <h3 class="text-sm font-bold text-slate-200">Step 3: Run Full Attack & Automated Containment Simulation</h3>
+            <pre class="p-3 rounded-lg bg-[#04060b] text-xs font-mono-code text-slate-300 border border-cyber-border"><code>chmod +x simulations/run_all_simulations.sh
+./simulations/run_all_simulations.sh</code></pre>
+          </div>
+
+          <div class="space-y-2">
+            <h3 class="text-sm font-bold text-slate-200">Step 4: Execute Unit Tests & Schema Validators</h3>
+            <pre class="p-3 rounded-lg bg-[#04060b] text-xs font-mono-code text-slate-300 border border-cyber-border"><code>pip install -r response_controller/requirements.txt pytest pytest-cov
+pytest tests/ -v --cov=response_controller</code></pre>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- FOOTER                                                                    -->
+  <!-- ========================================================================= -->
+  <footer class="border-t border-cyber-border glass-panel mt-12 py-6 text-xs text-cyber-textMuted">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-2">
+        <span class="w-2 h-2 rounded-full bg-quarantine"></span>
+        <span>Kubernetes Runtime Security & Cloud-Native Incident Response Platform</span>
+      </div>
+      <div class="flex items-center space-x-4">
+        <span>MIT License</span>
+        <span>•</span>
+        <a href="https://github.com/ravishkarathnayaka/Kubernetes-Runtime-Security-Cloud-Native-Incident-Response-Platform." target="_blank" class="hover:text-white transition-colors">GitHub</a>
+        <span>•</span>
+        <span>eBPF & Falco Powered</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- JAVASCRIPT APP LOGIC                                                      -->
+  <!-- ========================================================================= -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Tab Switching Logic
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(el => {
+        el.classList.remove('text-k8s-light', 'bg-k8s/10', 'border-b-2', 'border-k8s', 'active');
+        el.classList.add('text-cyber-textMuted');
+      });
+
+      const targetView = document.getElementById('view-' + tabId);
+      const targetBtn = document.getElementById('tab-' + tabId);
+      if (targetView) targetView.classList.remove('hidden');
+      if (targetBtn) {
+        targetBtn.classList.remove('text-cyber-textMuted');
+        targetBtn.classList.add('text-k8s-light', 'bg-k8s/10', 'border-b-2', 'border-k8s', 'active');
+      }
+
+      // Refresh icons if needed
+      lucide.createIcons();
+    }
+
+    // Incidents Mock Store
+    let incidents = [
+      {
+        id: "inc-8f2a1b9c",
+        priority: "CRITICAL",
+        rule: "Unauthorized Service Account Token Access",
+        target: "demo/compromised-workload",
+        action: "Quarantine NetPolicy Applied",
+        status: "Contained",
+        time: "10s ago"
+      },
+      {
+        id: "inc-4e9d3a17",
+        priority: "WARNING",
+        rule: "Interactive Shell Spawned Inside Pod",
+        target: "demo/frontend-app-7c",
+        action: "Quarantine NetPolicy Applied",
+        status: "Contained",
+        time: "4m ago"
+      },
+      {
+        id: "inc-1b8f52de",
+        priority: "CRITICAL",
+        rule: "Container Escape Attempt via Host Mount",
+        target: "staging/crypto-miner-test",
+        action: "Quarantine NetPolicy Applied",
+        status: "Contained",
+        time: "12m ago"
+      },
+      {
+        id: "inc-7a33c840",
+        priority: "WARNING",
+        rule: "Suspicious Outbound Egress to Potential C2",
+        target: "demo/web-backend-88",
+        action: "Quarantine NetPolicy Applied",
+        status: "Contained",
+        time: "28m ago"
+      }
+    ];
+
+    function renderIncidentsTable() {
+      const tbody = document.getElementById('incidents-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      incidents.forEach(inc => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-cyber-card/60 transition-colors';
+
+        const prioBadge = inc.priority === 'CRITICAL' 
+          ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-threat/20 text-threat border border-threat/40">CRITICAL</span>'
+          : '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">WARNING</span>';
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-bold text-slate-200">${inc.id}</td>
+          <td class="py-3 px-4">${prioBadge}</td>
+          <td class="py-3 px-4 text-slate-200">${inc.rule}</td>
+          <td class="py-3 px-4 text-cyber-textMuted">${inc.target}</td>
+          <td class="py-3 px-4 text-quarantine font-semibold">${inc.action}</td>
+          <td class="py-3 px-4">
+            <span class="inline-flex items-center space-x-1 text-quarantine font-bold">
+              <span class="w-1.5 h-1.5 rounded-full bg-quarantine"></span>
+              <span>${inc.status}</span>
+            </span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Interactive Pod Inspector
+    function inspectPod(name, ns, status, desc) {
+      const modal = document.getElementById('pod-inspector-modal');
+      document.getElementById('inspect-pod-name').innerText = `${name} (${desc})`;
+      document.getElementById('inspect-pod-ns').innerText = ns;
+      document.getElementById('inspect-pod-status').innerText = status;
+      document.getElementById('inspect-pod-policy').innerText = status === 'Quarantined' ? `quarantine-${name}` : 'default-deny-all';
+      modal.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    // Attack Simulator Animation & Playback
+    function clearTerminal() {
+      document.getElementById('terminal-content').innerHTML = '<div class="text-slate-500"># Terminal buffer cleared. Ready for next simulation.</div>';
+    }
+
+    function appendTerminal(text, colorClass = "text-slate-300") {
+      const term = document.getElementById('terminal-content');
+      const div = document.createElement('div');
+      div.className = colorClass;
+      div.innerText = text;
+      term.appendChild(div);
+      term.scrollTop = term.scrollHeight;
+    }
+
+    function highlightStep(stepNum) {
+      for (let i = 1; i <= 5; i++) {
+        const el = document.getElementById('step-' + i);
+        const num = el.querySelector('.step-number');
+        if (i === stepNum) {
+          el.classList.add('border-threat', 'bg-threat/10', 'glow-threat');
+          num.classList.remove('bg-slate-800', 'text-slate-300');
+          num.classList.add('bg-threat', 'text-white');
+        } else if (i < stepNum) {
+          el.classList.remove('border-threat', 'bg-threat/10', 'glow-threat');
+          el.classList.add('border-quarantine/50', 'bg-quarantine/5');
+          num.classList.remove('bg-slate-800', 'bg-threat', 'text-slate-300');
+          num.classList.add('bg-quarantine', 'text-white');
+        } else {
+          el.classList.remove('border-threat', 'bg-threat/10', 'glow-threat', 'border-quarantine/50', 'bg-quarantine/5');
+          num.classList.remove('bg-threat', 'bg-quarantine', 'text-white');
+          num.classList.add('bg-slate-800', 'text-slate-300');
+        }
+      }
+    }
+
+    function triggerAttackSimulation(attackType) {
+      // Switch to simulator tab if not already on it
+      switchTab('simulator');
+
+      const statusBadge = document.getElementById('term-status-badge');
+      statusBadge.innerText = 'Running Attack...';
+      statusBadge.className = 'px-2 py-0.5 rounded bg-threat/20 text-threat animate-pulse';
+
+      clearTerminal();
+      highlightStep(1);
+
+      let attackName = "ServiceAccount Token Harvest";
+      let ruleName = "Unauthorized Service Account Token Access";
+      let cmd = "cat /var/run/secrets/kubernetes.io/serviceaccount/token";
+      let priority = "CRITICAL";
+
+      if (attackType === 'terminal_shell') {
+        attackName = "Interactive Shell Exec";
+        ruleName = "Interactive Shell Spawned Inside Pod";
+        cmd = "/bin/sh -c whoami; id";
+        priority = "WARNING";
+      } else if (attackType === 'container_escape') {
+        attackName = "Host Breakout Attempt";
+        ruleName = "Container Escape Attempt via Host Mount";
+        cmd = "echo c > /proc/sysrq-trigger";
+        priority = "CRITICAL";
+      } else if (attackType === 'outbound_c2') {
+        attackName = "C2 Egress Connection";
+        ruleName = "Suspicious Outbound Egress to Non-Whitelisted Port";
+        cmd = "curl -m 2 198.51.100.45:4444";
+        priority = "WARNING";
+      }
+
+      appendTerminal(`[00:00.00] ==> Initiating Attack Vector: ${attackName}`, "text-cyan-400 font-bold");
+      appendTerminal(`[00:00.12] Target: demo/compromised-workload (container: curlimages)`, "text-slate-400");
+      appendTerminal(`[00:00.25] Executing in container: "${cmd}"`, "text-slate-200");
+
+      setTimeout(() => {
+        highlightStep(2);
+        appendTerminal(`[00:00.41] 🔍 [eBPF Probe] Hooked syscall tracepoint: sys_enter_openat`, "text-falco-cyan font-bold");
+        appendTerminal(`[00:00.46] 🛡️ [Falco Engine] Evaluated rule: "${ruleName}" (Priority: ${priority})`, "text-amber-400 font-bold");
+      }, 700);
+
+      setTimeout(() => {
+        highlightStep(3);
+        appendTerminal(`[00:00.60] 📨 [Webhook Forwarder] Dispatched HTTP POST to http://falco-response-controller.falco-response:8080/webhook`, "text-k8s-light");
+        appendTerminal(`[00:00.63] ⚡ [FastAPI Controller] Alert received: namespace=demo pod=compromised-workload`, "text-slate-200");
+      }, 1400);
+
+      setTimeout(() => {
+        highlightStep(4);
+        appendTerminal(`[00:00.75] 📁 [Forensics Engine] Snapshotting stdout/stderr logs and pod YAML manifest...`, "text-purple-400");
+        appendTerminal(`[00:00.80] 💾 [Forensics Engine] Persisted bundle to /evidence/inc-simulated-99/ (3 files)`, "text-purple-300");
+      }, 2100);
+
+      setTimeout(() => {
+        highlightStep(5);
+        appendTerminal(`[00:00.89] 🔒 [K8s Client] Synthesized & Applied NetworkPolicy 'quarantine-compromised-workload'`, "text-quarantine font-bold");
+        appendTerminal(`[00:00.91] 🏷️ [K8s Client] Patched pod labels: security.incident/quarantined="true"`, "text-quarantine");
+        appendTerminal(`[00:00.95] ⛔ [Containment Verification] Pod egress test: Connection timed out after 3000ms! Packet drop verified.`, "text-quarantine font-bold");
+
+        statusBadge.innerText = 'Incident Contained';
+        statusBadge.className = 'px-2 py-0.5 rounded bg-quarantine/20 text-quarantine';
+
+        // Update incidents count
+        const countEl = document.getElementById('metric-threats-count');
+        if (countEl) countEl.innerText = parseInt(countEl.innerText) + 1;
+
+        // Add incident to list
+        incidents.unshift({
+          id: `inc-${Math.random().toString(36).substring(2, 9)}`,
+          priority: priority,
+          rule: ruleName,
+          target: "demo/compromised-workload",
+          action: "Quarantine NetPolicy Applied",
+          status: "Contained",
+          time: "Just now"
+        });
+        renderIncidentsTable();
+      }, 2800);
+    }
+
+    // Evidence Vault Files Content
+    const evidenceFiles = {
+      alert: `{
+  "output": "15:42:01.109: Critical: ServiceAccount token harvest detected (pod=compromised-workload ns=demo)",
+  "priority": "CRITICAL",
+  "rule": "Unauthorized Service Account Token Access",
+  "time": "2026-09-14T15:42:01.109281Z",
+  "output_fields": {
+    "k8s.ns.name": "demo",
+    "k8s.pod.name": "compromised-workload",
+    "container.id": "7a18f9214b2",
+    "proc.cmdline": "cat /var/run/secrets/kubernetes.io/serviceaccount/token",
+    "user.name": "root"
+  }
+}`,
+      manifest: `apiVersion: v1
+kind: Pod
+metadata:
+  name: compromised-workload
+  namespace: demo
+  labels:
+    app: compromised-workload
+    security.incident/quarantined: "true"
+    security.incident/status: "contained"
+    security.incident/target-pod: "compromised-workload"
+  annotations:
+    security.incident/action: "quarantine-networkpolicy-applied"
+    security.incident/priority: "CRITICAL"
+    security.incident/rule: "Unauthorized Service Account Token Access"
+spec:
+  nodeName: kind-worker
+  containers:
+    - name: workload
+      image: curlimages/curl:latest`,
+      logs: `2026-09-14T15:41:40.000Z [info] Worker process started (PID 1)
+2026-09-14T15:41:55.120Z [info] Ingress heartbeat alive
+2026-09-14T15:42:01.090Z [warn] Unexpected child process execve: /bin/sh
+2026-09-14T15:42:01.102Z [threat] Unauthorized read attempt on /var/run/secrets/kubernetes.io/serviceaccount/token
+2026-09-14T15:42:01.910Z [security] Quarantine NetworkPolicy applied. Ingress/Egress packets dropped.`,
+      policy: `apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: quarantine-compromised-workload
+  namespace: demo
+  labels:
+    app.kubernetes.io/managed-by: falco-incident-response
+    security.incident/type: quarantine
+spec:
+  podSelector:
+    matchLabels:
+      security.incident/target-pod: compromised-workload
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []`
+    };
+
+    let currentEvidenceKey = 'alert';
+
+    function switchEvidenceFile(key) {
+      currentEvidenceKey = key;
+      document.querySelectorAll('[id^="ev-tab-"]').forEach(btn => {
+        btn.className = 'px-3 py-2 text-cyber-textMuted hover:text-white';
+      });
+      const activeBtn = document.getElementById('ev-tab-' + key);
+      if (activeBtn) {
+        activeBtn.className = 'px-3 py-2 text-falco-cyan font-bold border-b-2 border-falco-cyan';
+      }
+      document.getElementById('evidence-viewer-content').innerText = evidenceFiles[key];
+    }
+
+    function copyCurrentEvidence() {
+      navigator.clipboard.writeText(evidenceFiles[currentEvidenceKey]);
+      const btnText = document.getElementById('copy-btn-text');
+      btnText.innerText = 'Copied!';
+      setTimeout(() => btnText.innerText = 'Copy', 2000);
+    }
+
+    function downloadEvidenceBundle() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(evidenceFiles, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "k8s_incident_evidence_bundle.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    // Chart.js Initializations
+    function initCharts() {
+      // 1. Threat Pie Chart
+      const pieCtx = document.getElementById('threatPieChart');
+      if (pieCtx) {
+        new Chart(pieCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Token Harvest', 'Exec Shell', 'Host Escape', 'Outbound C2'],
+            datasets: [{
+              data: [42, 28, 16, 14],
+              backgroundColor: ['#ff2a5f', '#f59e0b', '#c084fc', '#3b82f6'],
+              borderColor: '#0c1222',
+              borderWidth: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            cutout: '72%'
+          }
+        });
+      }
+
+      // 2. Telemetry Line Chart
+      const lineCtx = document.getElementById('telemetryLineChart');
+      if (lineCtx) {
+        new Chart(lineCtx, {
+          type: 'line',
+          data: {
+            labels: ['15:35', '15:36', '15:37', '15:38', '15:39', '15:40', '15:41', '15:42'],
+            datasets: [
+              {
+                label: 'Syscalls Hooked (/s)',
+                data: [3800, 4100, 3950, 4300, 4150, 4500, 4800, 4200],
+                borderColor: '#00f2fe',
+                backgroundColor: 'rgba(0, 242, 254, 0.05)',
+                borderWidth: 2,
+                tension: 0.35,
+                fill: true,
+                yAxisID: 'y'
+              },
+              {
+                label: 'Containment Latency (ms)',
+                data: [650, 590, 610, 680, 620, 600, 840, 620],
+                borderColor: '#ff2a5f',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                tension: 0.2,
+                yAxisID: 'y1'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                grid: { color: 'rgba(26, 39, 68, 0.5)' },
+                ticks: { color: '#8ba1c7', font: { family: 'JetBrains Mono', size: 10 } }
+              },
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                grid: { color: 'rgba(26, 39, 68, 0.5)' },
+                ticks: { color: '#8ba1c7', font: { family: 'JetBrains Mono', size: 10 } }
+              },
+              y1: {
+                type: 'linear',
+                display: false,
+                position: 'right',
+                min: 0,
+                max: 1200
+              }
+            },
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      }
+    }
+
+    // Window Onload
+    window.addEventListener('DOMContentLoaded', () => {
+      renderIncidentsTable();
+      switchEvidenceFile('alert');
+      initCharts();
+    });
+  </script>
+</body>
+</html>
