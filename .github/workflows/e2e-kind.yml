@@ -1,0 +1,70 @@
+name: Kind E2E Integration Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  kind-e2e:
+    name: Kind Multi-Node Integration Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Kind Cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          config: cluster/kind-config.yaml
+          cluster_name: security-lab
+          wait: 120s
+
+      - name: Build Controller Image
+        run: |
+          docker build -t falco-response-controller:latest ./response_controller
+          kind load docker-image falco-response-controller:latest --name security-lab
+
+      - name: Deploy Controller & Baseline Network Policies
+        run: |
+          kubectl apply -f cluster/manifests/controller-deployment.yaml
+          kubectl apply -f network_policies/quarantine-template.yaml
+          kubectl -n falco-response rollout status deployment/falco-response-controller --timeout=90s
+
+      - name: Verify Controller Healthz & Metrics Endpoints
+        run: |
+          kubectl -n falco-response port-forward svc/falco-response-controller 8080:8080 &
+          sleep 3
+          curl -s http://localhost:8080/healthz | grep -q "ok"
+          curl -s http://localhost:8080/metrics | grep -q "falco_alerts_total"
+          echo "Controller health check and metrics successfully verified!"
+
+      - name: Test Automated Containment Flow via Webhook
+        run: |
+          # Create a demo target pod
+          kubectl create namespace demo
+          kubectl -n demo run compromised-workload --image=curlimages/curl:latest --restart=Always -- sleep 3600
+          kubectl -n demo wait --for=condition=ready pod/compromised-workload --timeout=60s
+
+          # Send simulated Falco alert webhook
+          curl -s -X POST http://localhost:8080/webhook \
+            -H "Content-Type: application/json" \
+            -d '{
+              "rule": "Unauthorized Service Account Token Access",
+              "priority": "CRITICAL",
+              "output": "ServiceAccount token harvest detected (pod=compromised-workload ns=demo)",
+              "output_fields": {
+                "k8s.ns.name": "demo",
+                "k8s.pod.name": "compromised-workload",
+                "container.id": "e2e123"
+              }
+            }' | grep -q "contained"
+
+          # Verify Quarantine NetworkPolicy was synthesized & applied
+          kubectl -n demo get networkpolicy quarantine-compromised-workload
+          
+          # Verify Pod Labeling
+          kubectl -n demo get pod compromised-workload --show-labels | grep -q "security.incident/quarantined=true"
+          echo "End-to-end automated containment test PASSED!"
