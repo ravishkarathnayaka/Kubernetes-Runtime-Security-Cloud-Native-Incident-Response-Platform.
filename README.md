@@ -26,6 +26,7 @@
 - [Interactive Web Portal & Vercel Deployment](#interactive-web-portal--vercel-deployment)
 - [CIS Kubernetes Benchmark Auditing](#cis-kubernetes-benchmark-auditing)
 - [Automated Testing & CI/CD Validation](#automated-testing--cicd-validation)
+- [Incident Response Playbook (SOP)](docs/INCIDENT_RESPONSE_PLAYBOOK.md)
 - [Production Hardening Guidelines](#production-hardening-guidelines)
 - [License](#license)
 
