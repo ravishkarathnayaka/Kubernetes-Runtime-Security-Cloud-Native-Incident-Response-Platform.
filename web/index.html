@@ -874,6 +874,10 @@ spec:
             </p>
           </div>
           <div class="flex items-center space-x-2 text-xs font-mono-code">
+            <button onclick="downloadMarkdownReport()" class="px-3 py-1.5 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-quarantine/50 text-quarantine flex items-center space-x-1.5">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              <span>Download Incident Report (.md)</span>
+            </button>
             <button onclick="downloadEvidenceBundle()" class="px-3 py-1.5 rounded-lg bg-cyber-card hover:bg-cyber-cardHover border border-cyber-border text-slate-200 flex items-center space-x-1.5">
               <i data-lucide="download" class="w-3.5 h-3.5"></i>
               <span>Export Evidence JSON</span>
@@ -1441,6 +1445,30 @@ spec:
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
+    }
+
+    function downloadMarkdownReport() {
+      const md = `# SOC Incident Containment Report: inc-8f2a1b9c\n\n` +
+        `**Timestamp:** 2026-09-14T15:42:01.109Z\n` +
+        `**Severity:** CRITICAL (Score 8.8)\n` +
+        `**Triggered Rule:** Unauthorized Service Account Token Access\n` +
+        `**Target Pod:** demo/compromised-workload\n\n` +
+        `## Automated Actions Taken\n` +
+        `- [x] Kernel Syscall Captured via modern eBPF probe (sys_enter_openat)\n` +
+        `- [x] Webhook dispatched to Incident Response Controller\n` +
+        `- [x] Forensic evidence snapshot dumped to /evidence/inc-8f2a1b9c/\n` +
+        `- [x] Zero-traffic Quarantine NetworkPolicy applied (quarantine-compromised-workload)\n` +
+        `- [x] Pod metadata tagged security.incident/quarantined="true"\n\n` +
+        `## Forensic Alert Context\n\`\`\`json\n` + evidenceFiles.alert + `\n\`\`\`\n\n` +
+        `## Applied Network Isolation Policy\n\`\`\`yaml\n` + evidenceFiles.policy + `\n\`\`\`\n`;
+      const blob = new Blob([md], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Incident_Report_inc-8f2a1b9c.md';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
 
     // Chart.js Initializations
