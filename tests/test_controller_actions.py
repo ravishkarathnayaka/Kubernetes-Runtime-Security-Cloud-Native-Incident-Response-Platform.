@@ -11,6 +11,7 @@ from response_controller.actions.alert_dispatcher import dispatch_alert
 from response_controller.actions.isolate_pod import isolate_pod
 from response_controller.actions.label_pod import label_pod
 from response_controller.actions.snapshot_evidence import snapshot_evidence
+from response_controller.actions.siem_forwarder import format_cef_event, format_ecs_event
 from response_controller.app import app
 from response_controller.k8s_client import KubernetesClient
 
@@ -327,5 +328,41 @@ def test_webhook_token_auth_accepted(test_client, monkeypatch):
     response = test_client.post("/webhook", json=payload, headers=headers)
     assert response.status_code == 200
     assert response.json()["status"] == "ignored"
+
+
+def test_format_cef_event():
+    """Test formatting event to Common Event Format (CEF)."""
+    cef = format_cef_event(
+        incident_id="inc-cef-123",
+        rule_name="Unauthorized Service Account Token Access",
+        priority="CRITICAL",
+        namespace="demo",
+        pod_name="victim-pod",
+        container_id="c-999",
+        actions_taken={"isolated": True},
+    )
+    assert cef.startswith("CEF:0|CloudNativeSecurity|FalcoResponseController|1.0|")
+    assert "cs1=inc-cef-123" in cef
+    assert "cs2=demo" in cef
+    assert "cs3=victim-pod" in cef
+    assert "act=network_isolation" in cef
+
+
+def test_format_ecs_event():
+    """Test formatting event to Elastic Common Schema (ECS)."""
+    ecs = format_ecs_event(
+        incident_id="inc-ecs-456",
+        rule_name="Interactive Shell Spawned Inside Pod",
+        priority="WARNING",
+        namespace="prod",
+        pod_name="api-worker",
+        container_id="cont-555",
+        actions_taken={"isolated": True},
+    )
+    assert ecs["ecs"]["version"] == "8.11.0"
+    assert ecs["orchestrator"]["namespace"] == "prod"
+    assert ecs["orchestrator"]["resource"]["name"] == "api-worker"
+    assert ecs["labels"]["incident_id"] == "inc-ecs-456"
+
 
 
