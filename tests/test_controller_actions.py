@@ -181,6 +181,14 @@ def test_healthz_endpoint(test_client):
     assert response.json()["status"] == "ok"
 
 
+def test_metrics_endpoint(test_client):
+    """Test Prometheus metrics scrape endpoint."""
+    response = test_client.get("/metrics")
+    assert response.status_code == 200
+    assert "falco_alerts_total" in response.text
+    assert "containment_actions_total" in response.text
+
+
 def test_webhook_low_priority_ignored(test_client):
     """Test that low-priority alerts (e.g. INFORMATIONAL) are ignored."""
     payload = {

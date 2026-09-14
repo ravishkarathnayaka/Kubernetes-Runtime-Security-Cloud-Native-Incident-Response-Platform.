@@ -8,6 +8,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
+import time
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+
 from response_controller.actions.alert_dispatcher import dispatch_alert
 from response_controller.actions.isolate_pod import isolate_pod
 from response_controller.actions.label_pod import label_pod
@@ -26,6 +29,17 @@ app = FastAPI(
     title="Kubernetes Runtime Security Incident Response Controller",
     description="Automated pod quarantine and evidence collection engine powered by Falco eBPF alerts",
     version="1.0.0",
+)
+
+# Prometheus Metrics
+FALCO_ALERTS_TOTAL = Counter(
+    "falco_alerts_total", "Total Falco alerts processed by webhook", ["priority", "rule"]
+)
+CONTAINMENT_ACTIONS_TOTAL = Counter(
+    "containment_actions_total", "Total automated containment actions taken", ["action", "namespace"]
+)
+CONTAINMENT_DURATION = Histogram(
+    "containment_duration_seconds", "Duration of end-to-end containment lifecycle in seconds"
 )
 
 # Global client and in-memory store
@@ -89,6 +103,12 @@ def parse_alert_metadata(payload: Dict[str, Any]) -> Dict[str, str]:
 def health_check():
     """Liveness and readiness probe endpoint."""
     return {"status": "ok", "controller": "falco-incident-response"}
+
+
+@app.get("/metrics")
+def metrics():
+    """Prometheus metrics scrape endpoint."""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/incidents")
@@ -157,6 +177,10 @@ async def receive_falco_alert(request: Request):
         f"🚨 INITIATING AUTOMATED INCIDENT RESPONSE for {namespace}/{pod_name} (Incident: {incident_id})"
     )
 
+    FALCO_ALERTS_TOTAL.labels(priority=priority, rule=rule).inc()
+
+    start_time = time.time()
+
     # 1. Collect Forensic Evidence
     evidence_bundle = snapshot_evidence(
         k8s_client=k8s_client,
@@ -183,6 +207,12 @@ async def receive_falco_alert(request: Request):
         rule_name=rule,
         priority=priority,
     )
+
+    CONTAINMENT_DURATION.observe(time.time() - start_time)
+    if isolated:
+        CONTAINMENT_ACTIONS_TOTAL.labels(action="isolate", namespace=namespace).inc()
+    if labeled:
+        CONTAINMENT_ACTIONS_TOTAL.labels(action="label", namespace=namespace).inc()
 
     # 4. Dispatch Notifications
     actions_taken = {
