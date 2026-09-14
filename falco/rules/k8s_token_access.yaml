@@ -1,0 +1,14 @@
+- rule: Unauthorized Service Account Token Access
+  desc: Detects unauthorized processes reading Kubernetes serviceaccount tokens for credential harvesting
+  condition: >
+    open_read and container and
+    fd.name glob "/var/run/secrets/kubernetes.io/serviceaccount/token*" and
+    not proc.name in (pause, kube-proxy, coredns)
+  output: "CRITICAL: ServiceAccount token harvest detected (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name file=%fd.name cmd=%proc.cmdline c_id=%container.id)"
+  priority: CRITICAL
+  tags:
+    - container
+    - credential_harvesting
+    - k8s
+    - mitre_credential_access
+    - T1552.007

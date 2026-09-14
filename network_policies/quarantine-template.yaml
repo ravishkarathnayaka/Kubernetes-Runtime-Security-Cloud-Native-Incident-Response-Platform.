@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: quarantine-template
+  labels:
+    app.kubernetes.io/managed-by: falco-incident-response
+    security.incident/type: quarantine
+spec:
+  podSelector:
+    matchLabels:
+      security.incident/quarantined: "true"
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []

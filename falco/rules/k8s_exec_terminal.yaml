@@ -1,0 +1,14 @@
+- rule: Interactive Shell Spawned Inside Pod
+  desc: Detects interactive bash or shell session spawned inside a Kubernetes pod
+  condition: >
+    spawned_process and container and
+    (proc.name in (bash, sh, zsh, dash, ash, ksh) or proc.cmdline contains "sh" or proc.cmdline contains "bash") and
+    not proc.pname in (containerd-shim, containerd-shim-runc-v2, runc, dockerd)
+  output: "Notice: Interactive terminal spawned inside pod (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name container=%container.name cmd=%proc.cmdline pcmd=%proc.pcmdline c_id=%container.id)"
+  priority: WARNING
+  tags:
+    - container
+    - shell
+    - k8s
+    - mitre_execution
+    - T1059

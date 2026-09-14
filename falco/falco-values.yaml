@@ -1,0 +1,51 @@
+# ==============================================================================
+# Falco Helm Values: Modern eBPF Driver & Webhook Configuration
+# ==============================================================================
+
+driver:
+  kind: modern_ebpf
+
+falco:
+  json_output: true
+  json_include_output_property: true
+  
+  # HTTP Webhook Output forwarding alerts to Incident Response Controller
+  http_output:
+    enabled: true
+    url: "http://falco-response-controller.falco-response.svc.cluster.local:8080/webhook"
+
+  # Standard rules directory
+  rules_files:
+    - /etc/falco/falco_rules.yaml
+    - /etc/falco/falco_rules.local.yaml
+    - /etc/falco/rules.d
+
+# Mount custom rules ConfigMap into /etc/falco/rules.d
+mounts:
+  volumes:
+    - name: custom-rules-volume
+      configMap:
+        name: falco-custom-rules
+        optional: true
+  volumeMounts:
+    - name: custom-rules-volume
+      mountPath: /etc/falco/rules.d
+      readOnly: true
+
+# Resource constraints
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+
+# Tolerations to allow running on control-plane nodes
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule

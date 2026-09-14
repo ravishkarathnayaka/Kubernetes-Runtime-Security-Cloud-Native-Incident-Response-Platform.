@@ -1,0 +1,15 @@
+- rule: Container Escape Attempt via Host Mount or Namespace Tampering
+  desc: Detects potential container breakout attempts via sensitive host paths or unexpected namespace changes
+  condition: >
+    container and
+    ((evt.type in (mount, umount, setns, unshare)) or
+     (open_write and (fd.name startswith "/proc/sysrq-trigger" or fd.name startswith "/proc/kcore" or fd.name startswith "/dev/mem")) or
+     (spawned_process and proc.name in (nsenter, chroot, capsh)))
+  output: "CRITICAL: Potential container escape activity detected (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name proc=%proc.name cmd=%proc.cmdline c_id=%container.id)"
+  priority: CRITICAL
+  tags:
+    - container
+    - escape
+    - privilege_escalation
+    - mitre_privilege_escalation
+    - T1611

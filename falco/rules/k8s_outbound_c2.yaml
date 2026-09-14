@@ -1,0 +1,16 @@
+- rule: Suspicious Outbound Egress to Non-Whitelisted Port
+  desc: Detects unexpected egress network connections to non-standard ports indicative of Command & Control (C2)
+  condition: >
+    outbound and container and
+    not fd.sport in (80, 443, 53, 8080, 8443) and
+    not fd.dport in (80, 443, 53, 8080, 8443, 6443) and
+    not fd.sip in ("127.0.0.1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+  output: "WARNING: Unexpected outbound connection to potential C2 (user=%user.name pod=%k8s.pod.name ns=%k8s.ns.name connection=%fd.name cmd=%proc.cmdline c_id=%container.id)"
+  priority: WARNING
+  tags:
+    - container
+    - network
+    - outbound
+    - c2
+    - mitre_command_and_control
+    - T1071
